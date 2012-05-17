@@ -4,7 +4,7 @@
 
 #define	A		1	/* IPv4 address */
 #define	NS		2	/* Authoritative name server */
-#define	CNAME		5 	/* Canonical name for an alias */
+#define	CNAME	5 	/* Canonical name for an alias */
 #define	PTR		12 	/* Domain name pointer. */
 #define	MX		15 	/* Mail exchange */
 
@@ -30,7 +30,7 @@
     |                    ARCOUNT                    |
     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 */
-typedef struct {
+typedef struct dns_header_t_{
 	
 	// schimba (LITTLE/BIG ENDIAN) folosind htons/ntohs
 	unsigned short id; // identification number
@@ -69,7 +69,7 @@ typedef struct {
     |                     QCLASS                    |
     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 */
-typedef struct
+typedef struct dns_question_t_
 {
 	
 	//qname variabil
@@ -101,7 +101,8 @@ typedef struct
     /                                               /
     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 */
-typedef struct {
+#pragma pack(push, 1)
+typedef struct dns_rr_t_{
 	
 	//name variabil
 	unsigned short type;
@@ -111,3 +112,17 @@ typedef struct {
 	//rdata variabil;
 
 } dns_rr_t;
+#pragma pack(pop)
+
+/* Pointers to resource record contents */
+typedef struct RR_{
+	unsigned char *name;	// Domain name
+	dns_rr_t *resource;		// Resources
+	unsigned char *rdata;	// Resource description
+}RR;
+
+/* Structure of query */
+typedef struct Query_{
+	unsigned char *qname;		// Domain name
+	dns_question_t *question;	// Question
+}Query;
