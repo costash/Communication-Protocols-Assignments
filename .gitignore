@@ -10,3 +10,6 @@
 *.lai
 *.la
 *.a
+
+# Binary
+my_dns_client
