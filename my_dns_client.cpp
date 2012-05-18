@@ -20,12 +20,16 @@ using namespace std;
 #define DNSPORT 53
 #define BUFLEN 1024
 
+/* Error message + interpretation of the code */
 void error(string msg)
 {
 	perror(msg.c_str());
 	exit(1);
 }
 
+/* Convert from www.google.com format to
+ * 3www6google3com format.
+ **/
 void convert_to_dns(unsigned char *dns, unsigned char *name)
 {
 	unsigned int point = 0, i;
@@ -46,9 +50,24 @@ void convert_to_dns(unsigned char *dns, unsigned char *name)
 	*dns++ = '\0';
 }
 
+/* Make query to a dns server */
+void get_host_by_name(unsigned char *host, unsigned char *server, int query_type)
+{
+	struct sockaddr_in serv_addr;
+	int sockfd;						// Socket for UDP connection
+	unsigned char buffer[BUFLEN], *queryname;
+}
+
 int main(int argc, char *argv[])
 {
-	cerr << "Hello world\n";
+	if (argc != 3)
+	{
+		cerr << "Usage: ./my_dns_client hostname/address type\n";
+		exit(0);
+	}
+
+	cerr << argv[1] << " " << argv[2] << endl << endl;
+
 
 	int sockfd;
 	struct sockaddr_in serv_addr;
@@ -81,21 +100,7 @@ int main(int argc, char *argv[])
 	memcpy(buffer, &header, sizeof(header));
 
 	unsigned char nume[BUFLEN];
-	memset(nume, 0, sizeof(nume));
-	nume[0] = 3;
-	for (int i = 0; i < 3; ++i)
-		nume[i + 1] = 'w';
-	nume[4] = 6;
-	string google = "google";
-	for (int i = 0; i < 6; ++i)
-		nume[i+5] = google[i];
-	nume[11] = 3;
-	nume[12] = 'c';
-	nume[13] = 'o';
-	nume[14] = 'm';
-	nume[15] = '\0';
-
-	unsigned char goo[BUFLEN] = "cs.curs.pub.ro\0";
+	unsigned char goo[BUFLEN] = "www.google.com\0";
 	memset(nume, 0, sizeof(nume));
 	convert_to_dns(nume, goo);
 
