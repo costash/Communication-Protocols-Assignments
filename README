@@ -2,3 +2,17 @@
 *** Constantin Șerban-Rădoi ***
 *** Mai 2012 ***
 
+Tema a constat în interogarea unuia sau a mai multor servere
+DNS pentru a obține informații pentru un hostname sau o
+adresă IP.
+
+În implementarea temei am făcut o funcție care face efectiv
+interpretarea datelor, numită get_host_by_name, care
+creează un Header, nu nume și un query DNS, pe care-l trimite
+prin UDP pe un socket.
+
+Am folosit Select pentru a pune un timp de așteptare pentru
+serverele DNS care sunt picate.
+
+După ce-am primit informațiile, încep să le parsez de mână
+și să le scriu în fișierul logfile.
