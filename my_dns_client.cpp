@@ -109,13 +109,15 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 	// Citesc numele în formatul 3www6google3com
 	while (*read_ptr != 0)
 	{
+//		cerr << "{" << *read_ptr << "} ";
 		// Trebuie să sar către un nume
 		if (*read_ptr >= 192)
 		{
 			// 11000000 0000000 e scăzut din numărul format de
 			// cele 2 caractere
 			offset = (*read_ptr) * (1<<8) + *(read_ptr + 1)
-					- ((1<<16) - 1) - ((1<<14) -1);
+					- (((1<<16) - 1) - ((1<<14) -1));
+//			cerr << "\noffset " << offset << endl;
 			read_ptr = buffer + offset - 1;
 			jumped = true;	// Nu voi mai crește count-ul
 		}
@@ -148,6 +150,7 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 	}
 	name[i - 1] = '\0';	// Șterg ultimul punct;
 
+//	cerr << "dns-to-host_TEST: {" << name << "}\n";
 
 	return name;
 }
@@ -246,7 +249,7 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 		/* Am primit răspuns de la server și încep să-l parsez.
 		 * Scriu în fișier răspunsul
 		 */
-		int i = sizeof(serv_addr);
+		int i = sizeof(serv_addr), j;
 		memset(buffer, 0, sizeof(buffer));
 		cerr << "Receiving RR...\n";
 		if ( recvfrom(sockfd, (char *)buffer, BUFLEN, 0, (struct sockaddr*) &serv_addr,
@@ -277,6 +280,42 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 		fout << "\n;; ANSWER SECTION:\n";
 
 		for (i = 0; i < ntohs(dns_header->ancount); ++i)
+		{
+			memset(&answer, 0, sizeof(answer));
+			answer.name = dns_to_host(read_ptr, buffer, last);
+			read_ptr += last;
+			cerr << "nume " << answer.name << endl;
+
+			answer.resource = (dns_rr_t *)read_ptr;
+			read_ptr += sizeof(dns_rr_t);
+
+			if (ntohs(answer.resource->type) == A)	// IP address
+			{
+				unsigned short len = ntohs(answer.resource->rdlength);
+				if ( (answer.rdata = (unsigned char*) malloc(len)) < 0)
+					error("Malloc error in answer section");
+
+				for (j = 0; j < ntohs(answer.resource->rdlength); ++j)
+				{
+					answer.rdata[j] = read_ptr[j];
+				}
+
+				answer.rdata[len] = '\0';
+				read_ptr += len;
+
+				cerr << "nume_as_ip " << answer.rdata  << endl;
+			}
+
+			else
+			{
+				answer.rdata = dns_to_host(read_ptr, buffer, last);
+				read_ptr += last;
+				cerr << "ans.rdata " << answer.rdata << endl;
+			}
+		}
+
+		// Secțiunea Authorities
+		for (i = 0; i < ntohs(dns_header->nscount); ++i)
 		{
 
 		}
