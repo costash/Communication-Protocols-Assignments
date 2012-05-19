@@ -195,9 +195,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 	dns_header->qdcount = htons(1);
 	dns_header->rd = 1;
 
-	cerr << "Header: " << ntohs(dns_header->id) << " " << ntohs(dns_header->qdcount) << " ";
-	cerr << (unsigned short int)dns_header->rd << endl;
-
 	queryname = (unsigned char*) &buffer[sizeof(dns_header_t)];
 
 	/* ============================================================================
@@ -284,14 +281,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 		read_ptr = &buffer[ sizeof(dns_header_t) + (strlen((const char*)queryname))
 		                    + 1 + sizeof(dns_question_t) ];
 
-		cerr << "\nResponse has:\n";
-		cerr << ntohs(dns_header->qdcount) << " Questions.\n";
-		cerr << ntohs(dns_header->ancount) << " Answers.\n";
-		cerr << ntohs(dns_header->nscount) << " Authoritative servers\n";
-		cerr << ntohs(dns_header->arcount) << " Additional records\n";
-
-		cerr << "TEST: type_to_string: " << type_to_string(query_type) << endl;
-
 		// -------------------------------------------------------------------
 		// Secțiunea Answer
 		int last = 0;
@@ -304,7 +293,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 			memset(&answer, 0, sizeof(answer));
 			answer.name = dns_to_host(read_ptr, buffer, last);
 			read_ptr += last;
-			cerr << "nume " << answer.name << endl;
 
 			answer.resource = (dns_rr_t *)read_ptr;
 			read_ptr += sizeof(dns_rr_t);
@@ -337,18 +325,12 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 				ans.sin_addr.s_addr = (*point);
 
 				fout << "\t" << inet_ntoa(ans.sin_addr);
-
-
-//				cerr << "nume_as_ip " << answer.rdata  << endl;
 			}
 
 			if (ntohs(answer.resource->type) == MX)	// Mail
 			{
 				unsigned short *pref = NULL;
 				pref = (unsigned short *) read_ptr;
-
-				cerr << "preference " << ntohs(*pref) << endl;
-
 				read_ptr += 2;
 
 				unsigned short len = ntohs(answer.resource->rdlength);
@@ -357,7 +339,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 
 				answer.rdata = dns_to_host(read_ptr, buffer, last);
 								read_ptr += last;
-				cerr << "Nameserver: " << answer.rdata << endl;
 
 				fout << "\t" << ntohs(*pref) << "\t" << answer.rdata;
 			}
@@ -366,7 +347,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 			{
 				answer.rdata = dns_to_host(read_ptr, buffer, last);
 				read_ptr += last;
-				cerr << "ans.rdata " << answer.rdata << endl;
 
 				fout << "\t" << answer.rdata;
 			}
@@ -439,14 +419,9 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 			{
 				answer.rdata = dns_to_host(read_ptr, buffer, last);
 				read_ptr += last;
-				cerr << "ans.rdata " << answer.rdata << endl;
 
 				fout << "\t" << answer.rdata;
 			}
-
-
-
-
 		}
 	}
 
@@ -461,10 +436,6 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	cerr << argv[1] << " " << argv[2] << endl << endl;
-
-	cerr << "\nTEST: string_to_type: " << string_to_type(argv[2]) << endl;
-
 	ifstream fin("dns_servers.conf");
 	char buf[NAMESZ];
 	bool ok = false;
@@ -475,14 +446,11 @@ int main(int argc, char *argv[])
 
 		if (buf[0] == '#' || buf[0] == '\0')
 			continue;
-		cerr << "{" << buf << "}\n";
 
 		ok = get_host_by_name((unsigned char*)argv[1], (unsigned char*)buf, string_to_type(argv[2]));
 	}
 
 	get_host_by_name((unsigned char*)argv[1], (unsigned char*)DNS, string_to_type(argv[2]));
-
-	cerr << "TEST: " << ((1<<16) - 1) - ((1<<14) -1) << endl;
 
 	fin.close();
 	fout.close();
