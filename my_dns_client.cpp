@@ -112,11 +112,42 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 		// Trebuie să sar către un nume
 		if (*read_ptr >= 192)
 		{
-			// primii 2 biți,
+			// 11000000 0000000 e scăzut din numărul format de
+			// cele 2 caractere
 			offset = (*read_ptr) * (1<<8) + *(read_ptr + 1)
 					- ((1<<16) - 1) - ((1<<14) -1);
+			read_ptr = buffer + offset - 1;
+			jumped = true;	// Nu voi mai crește count-ul
 		}
+		else
+		{
+			name[poz++] = *read_ptr;
+		}
+		read_ptr += 1;	// Trec la următorul caracter
+
+		if ( !jumped )
+			count++;
 	}
+
+	name[poz] = '\0';	// Sfârșit de șir
+	if (jumped)
+	{
+		count++;
+	}
+
+	// Conversia propriu-zisă
+	for (i = 0; i < (int)strlen((const char*)name); ++i)
+	{
+		poz = name[i];
+		for (j = 0; j < (int)poz; ++j)
+		{
+			name[i] = name[i + 1];
+			++i;
+		}
+		name[i] = '.';
+	}
+	name[i - 1] = '\0';	// Șterg ultimul punct;
+
 
 	return name;
 }
