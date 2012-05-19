@@ -20,6 +20,8 @@ using namespace std;
 #define DNSPORT 53
 #define BUFLEN 1024
 
+#define WAIT 2		// 2 seconds waiting time
+
 /* Error message + interpretation of the code */
 void error(string msg)
 {
@@ -51,11 +53,12 @@ void convert_to_dns(unsigned char *dns, unsigned char *name)
 }
 
 /* Make query to a dns server */
-void get_host_by_name(unsigned char *host, unsigned char *server, int query_type)
+bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type)
 {
 	struct sockaddr_in serv_addr;
 	int sockfd;						// Socket for UDP connection
-	unsigned char buffer[BUFLEN], *queryname;
+	unsigned char buffer[BUFLEN], *queryname, *read_ptr;
+	int readsocks;					// Sockets read by select
 
 	dns_header_t *dns_header = NULL;	// DNS Header
 	dns_question_t *dns_question = NULL;	// DNS Question
@@ -93,18 +96,63 @@ void get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 	cerr << "qclas: " << ntohs(dns_question->qclass) << " qtype: "
 			<< ntohs(dns_question->qtype) << endl;
 
-	cerr << "Sending query for " << host << endl;
+	cerr << "Sending query for " << host << "...\n";
 	if (sendto(sockfd, (char *)buffer, sizeof(dns_header_t)
 			+ (strlen((const char*)queryname) + 1) + sizeof(dns_question_t),
 			0, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
 	{
 		perror("Error in sendto");
+		return true;
 	}
-	cerr << "Done sending\n";
+	cerr << "Done sending.\n";
 
 	fd_set readfds;
 	struct timeval tv;
 
+	FD_ZERO(&readfds);
+	FD_SET(sockfd, &readfds);
+
+	tv.tv_sec = WAIT;
+	tv.tv_usec = 0;
+
+	readsocks = select(sockfd + 1, &readfds, NULL, NULL, &tv);
+
+	if ( readsocks == -1 )
+	{
+		perror("Error in select");
+		return true;
+	}
+	if ( readsocks == 0 )
+	{
+		cerr << "Timeout in select\n";
+		return true;
+	}
+	if ( FD_ISSET(sockfd, &readfds) )
+	{
+		int i = sizeof(serv_addr);
+		memset(buffer, 0, sizeof(buffer));
+		cerr << "Receiving RR...\n";
+		if ( recvfrom(sockfd, (char *)buffer, BUFLEN, 0, (struct sockaddr*) &serv_addr,
+				(socklen_t*) &i) < 0 )
+		{
+			perror("Error in recvfrom");
+			return true;
+		}
+		cerr << "Ans received.\n";
+
+		dns_header = (dns_header_t*) buffer;
+
+		read_ptr = &buffer[ sizeof(dns_header_t) + (strlen((const char*)queryname))
+		                    + 1 + sizeof(dns_question_t) ];
+
+		cerr << "\nResponse has:\n";
+		cerr << ntohs(dns_header->qdcount) << " Questions.\n";
+		cerr << ntohs(dns_header->ancount) << " Answers.\n";
+		cerr << ntohs(dns_header->nscount) << " Authoritative servers\n";
+		cerr << ntohs(dns_header->arcount) << " Additional records\n";
+	}
+
+	return false;
 }
 
 int main(int argc, char *argv[])
