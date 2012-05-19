@@ -16,17 +16,54 @@
 
 using namespace std;
 
-#define DNS "8.8.8.8"
+#define DNS "127.0.0.1"
 #define DNSPORT 53
 #define BUFLEN 1024
+#define NAMESZ 256
 
 #define WAIT 2		// 2 seconds waiting time
+
+ofstream fout("logfile");
 
 /* Error message + interpretation of the code */
 void error(string msg)
 {
 	perror(msg.c_str());
 	exit(1);
+}
+
+/* Convert type from int to string
+ * e.g.: 1 becomes A; 2 becomes NS
+ */
+string type_to_string(int type)
+{
+	switch(type)
+	{
+	case A: return "A";
+	case NS: return "NS";
+	case CNAME: return "CNAME";
+	case PTR: return "PTR";
+	case MX: return "MX";
+	default: return "";
+	}
+}
+
+/* Convert type from char* to int
+ * e.g.: "A" becomes 1, "NS" becomes 2
+ */
+int string_to_type(char *type)
+{
+	if ( strcmp(type, "A") == 0 )
+		return A;
+	if ( strcmp(type, "NS") == 0 )
+		return NS;
+	if ( strcmp(type, "CNAME") == 0)
+		return CNAME;
+	if ( strcmp(type, "PTR") == 0)
+		return PTR;
+	if ( strcmp(type, "MX") == 0)
+		return MX;
+	return -1;
 }
 
 /* Convert from www.google.com format to
@@ -52,6 +89,38 @@ void convert_to_dns(unsigned char *dns, unsigned char *name)
 	*dns++ = '\0';
 }
 
+/* Convert from 3www6google3.com format to
+ * www.google.com format
+ */
+unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& count)
+{
+	unsigned char *name;
+
+	if ( (name = (unsigned char*) calloc(NAMESZ, sizeof(unsigned char))) < 0 )
+		error("malloc error in dns_to_host");
+
+	unsigned int poz = 0, offset;
+	bool jumped = false;
+	int i, j;
+
+	count = 1;
+	name[0] = '\0';
+
+	// Citesc numele în formatul 3www6google3com
+	while (*read_ptr != 0)
+	{
+		// Trebuie să sar către un nume
+		if (*read_ptr >= 192)
+		{
+			// primii 2 biți,
+			offset = (*read_ptr) * (1<<8) + *(read_ptr + 1)
+					- ((1<<16) - 1) - ((1<<14) -1);
+		}
+	}
+
+	return name;
+}
+
 /* Make query to a dns server */
 bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type)
 {
@@ -63,6 +132,10 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 	dns_header_t *dns_header = NULL;	// DNS Header
 	dns_question_t *dns_question = NULL;	// DNS Question
 
+	memset(buffer, 0, sizeof(buffer));
+	/* ==========================================================================
+	 * Socket + dns header handling
+	 */
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(DNSPORT);
 	inet_aton((char *)server, &serv_addr.sin_addr);	// DNS address
@@ -82,6 +155,11 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 	cerr << (unsigned short int)dns_header->rd << endl;
 
 	queryname = (unsigned char*) &buffer[sizeof(dns_header_t)];
+
+	/* ============================================================================
+	 * Începe trimiterea unui query dns
+	 */
+	fout << "\n; Trying: " << host << " " << type_to_string(query_type) << "\n";
 
 	cerr << host << endl;
 	convert_to_dns(queryname, host);
@@ -106,6 +184,11 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 	}
 	cerr << "Done sending.\n";
 
+	/* Aștept un timp pentru a primi răspuns de la server și apoi
+	 * scriu răspunsul în fișier. Dacă nu am primit răspuns trec
+	 * mai departe
+	 */
+
 	fd_set readfds;
 	struct timeval tv;
 
@@ -129,6 +212,9 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 	}
 	if ( FD_ISSET(sockfd, &readfds) )
 	{
+		/* Am primit răspuns de la server și încep să-l parsez.
+		 * Scriu în fișier răspunsul
+		 */
 		int i = sizeof(serv_addr);
 		memset(buffer, 0, sizeof(buffer));
 		cerr << "Receiving RR...\n";
@@ -142,6 +228,7 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 
 		dns_header = (dns_header_t*) buffer;
 
+		// Sar peste header și query
 		read_ptr = &buffer[ sizeof(dns_header_t) + (strlen((const char*)queryname))
 		                    + 1 + sizeof(dns_question_t) ];
 
@@ -150,6 +237,18 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 		cerr << ntohs(dns_header->ancount) << " Answers.\n";
 		cerr << ntohs(dns_header->nscount) << " Authoritative servers\n";
 		cerr << ntohs(dns_header->arcount) << " Additional records\n";
+
+		cerr << "TEST: type_to_string: " << type_to_string(query_type) << endl;
+
+		// Secțiunea Answer
+		int last = 0;
+		RR answer;
+		fout << "\n;; ANSWER SECTION:\n";
+
+		for (i = 0; i < ntohs(dns_header->ancount); ++i)
+		{
+
+		}
 	}
 
 	return false;
@@ -165,56 +264,11 @@ int main(int argc, char *argv[])
 
 	cerr << argv[1] << " " << argv[2] << endl << endl;
 
+	cerr << "\nTEST: string_to_type: " << string_to_type(argv[2]) << endl;
 
-	int sockfd;
-	struct sockaddr_in serv_addr;
-	char buffer[BUFLEN];
+	get_host_by_name((unsigned char*)argv[1], (unsigned char*)DNS, string_to_type(argv[2]));
 
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(DNSPORT);
-	inet_aton(DNS, &serv_addr.sin_addr);
-
-
-	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sockfd < 0)
-		error("ERROR opening socket");
-
-	cerr << "Am deschis socket-ul " << sockfd << endl;
-
-	memset(buffer, 0, sizeof(buffer));
-
-	dns_header_t header;
-	dns_question_t question;
-	memset(&header, 0, sizeof(header));
-	memset(&question, 0, sizeof(question));
-
-	header.qdcount = htons(1);
-	header.rd = 1;
-
-	question.qtype = htons(A);
-	question.qclass = htons(1);	// IN
-
-	memcpy(buffer, &header, sizeof(header));
-
-	unsigned char nume[BUFLEN];
-	unsigned char goo[BUFLEN] = "www.google.com\0";
-	memset(nume, 0, sizeof(nume));
-	convert_to_dns(nume, goo);
-
-	cerr << nume << endl;
-	cerr << goo << endl;
-
-	memcpy(buffer + sizeof(header), nume, (strlen((const char*)nume) + 1));
-
-	memcpy(buffer + sizeof(header) + (strlen((const char*)nume) + 1), &question, sizeof(question));
-
-	sendto(sockfd, buffer, sizeof(header) + (strlen((const char*)nume) + 1) + sizeof(question), 0,
-			(struct sockaddr*) &serv_addr, sizeof(serv_addr));
-
-
-	cerr << "Query sent for: " << goo;
-
-	get_host_by_name((unsigned char*)argv[1], (unsigned char*)DNS, A);
+	cerr << "TEST: " << ((1<<16) - 1) - ((1<<14) -1) << endl;
 
 	return 0;
 }
