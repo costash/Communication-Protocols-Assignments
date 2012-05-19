@@ -99,6 +99,15 @@ void convert_to_dns(unsigned char *dns, unsigned char *name)
 	*dns++ = '\0';
 }
 
+/* Convert from 192.168.0.1 format to
+ * 1110316831927in-addr4arpa format
+ */
+void convert_to_dns2(unsigned char *dns, unsigned char *name)
+{
+
+
+}
+
 /* Convert from 3www6google3.com format to
  * www.google.com format
  */
@@ -167,12 +176,15 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 }
 
 /* Make query to a dns server */
-bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type)
+bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_type)
 {
 	struct sockaddr_in serv_addr, ans;
 	int sockfd;						// Socket for UDP connection
 	unsigned char buffer[BUFLEN], *queryname, *read_ptr;
 	int readsocks;					// Sockets read by select
+
+	unsigned char host[NAMESZ];
+	strcpy((char *)host, (const char*)host2);
 
 	dns_header_t *dns_header = NULL;	// DNS Header
 	dns_question_t *dns_question = NULL;	// DNS Question
@@ -196,7 +208,7 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 	dns_header->qdcount = htons(1);
 	dns_header->rd = 1;
 
-	cerr << endl << ntohs(dns_header->id) << " " << ntohs(dns_header->qdcount) << " ";
+	cerr << "Header: " << ntohs(dns_header->id) << " " << ntohs(dns_header->qdcount) << " ";
 	cerr << (unsigned short int)dns_header->rd << endl;
 
 	queryname = (unsigned char*) &buffer[sizeof(dns_header_t)];
@@ -207,7 +219,22 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 	fout << "\n; Trying: " << host << " " << type_to_string(query_type);
 
 	cerr << host << endl;
-	convert_to_dns(queryname, host);
+	if (query_type != PTR)
+		convert_to_dns(queryname, host);
+	else
+	{
+		struct in_addr temp;
+		inet_aton((const char*)host, &temp);
+
+		unsigned int ptr = ntohl(*(unsigned int*)&temp);
+		temp = *(struct in_addr*)&ptr;
+
+
+		strcat((char*)host, ".in-addr.arpa");
+		sprintf((char*)host,"%s.in-addr.arpa", inet_ntoa(temp) );
+
+		convert_to_dns(queryname, host);
+	}
 	cerr << "\n" << queryname << endl << host << endl;
 
 	dns_question = (dns_question_t *) &buffer[ sizeof(dns_header_t)
@@ -304,6 +331,8 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 
 			// -----------------------
 			// Afișez numele în fișier
+			if (type_to_string(ntohs(answer.resource->type)) == "")
+				continue;
 			fout << "\n" << answer.name << "\t"
 				 << class_type_to_string(ntohs(answer.resource->class_))
 				 << "\t" << type_to_string(ntohs(answer.resource->type));
@@ -358,7 +387,8 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 			answer.rdata = dns_to_host(read_ptr, buffer, last);
 			read_ptr += last;
 
-
+			if (type_to_string(ntohs(answer.resource->type)) == "")
+				continue;
 			fout << "\n" << answer.name << "\t"
 				 << class_type_to_string(ntohs(answer.resource->class_))
 				 << "\t" << type_to_string(ntohs(answer.resource->type))
@@ -377,6 +407,8 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 			answer.resource = (dns_rr_t*)read_ptr;
 			read_ptr += sizeof(dns_rr_t);
 
+			if (type_to_string(ntohs(answer.resource->type)) == "")
+				continue;
 			fout << "\n" << answer.name << "\t"
 				 << class_type_to_string(ntohs(answer.resource->class_))
 				 << "\t" << type_to_string(ntohs(answer.resource->type));
@@ -433,9 +465,27 @@ int main(int argc, char *argv[])
 
 	cerr << "\nTEST: string_to_type: " << string_to_type(argv[2]) << endl;
 
+	ifstream fin("dns_servers.conf");
+	char buf[NAMESZ];
+	bool ok = false;
+
+	while (fin.good() && ok)
+	{
+		fin.getline(buf, NAMESZ);
+
+		if (buf[0] == '#' || buf[0] == '\0')
+			continue;
+		cerr << "{" << buf << "}\n";
+
+		ok = get_host_by_name((unsigned char*)argv[1], (unsigned char*)buf, string_to_type(argv[2]));
+	}
+
 	get_host_by_name((unsigned char*)argv[1], (unsigned char*)DNS, string_to_type(argv[2]));
 
 	cerr << "TEST: " << ((1<<16) - 1) - ((1<<14) -1) << endl;
+
+	fin.close();
+	fout.close();
 
 	return 0;
 }
