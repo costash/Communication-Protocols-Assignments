@@ -1,4 +1,5 @@
 
-; Trying: google.com NS
+; Trying: 209.92.24.80 A
 
 ;; ANSWER SECTION:
+209.92.24.80.	IN	A	209.92.24.80

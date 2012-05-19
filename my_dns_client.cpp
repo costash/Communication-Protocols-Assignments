@@ -48,6 +48,16 @@ string type_to_string(int type)
 	}
 }
 
+/*
+ * Convert type 1 to string "IN"
+ */
+string class_type_to_string(int type)
+{
+	if (type == 1)
+		return "IN";
+	return "";
+}
+
 /* Convert type from char* to int
  * e.g.: "A" becomes 1, "NS" becomes 2
  */
@@ -148,7 +158,8 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 		}
 		name[i] = '.';
 	}
-	name[i - 1] = '\0';	// Șterg ultimul punct;
+	name[i] = '\0';
+//	name[i - 1] = '\0';	// Șterg ultimul punct;
 
 //	cerr << "dns-to-host_TEST: {" << name << "}\n";
 
@@ -158,7 +169,7 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 /* Make query to a dns server */
 bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type)
 {
-	struct sockaddr_in serv_addr;
+	struct sockaddr_in serv_addr, ans;
 	int sockfd;						// Socket for UDP connection
 	unsigned char buffer[BUFLEN], *queryname, *read_ptr;
 	int readsocks;					// Sockets read by select
@@ -193,7 +204,7 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 	/* ============================================================================
 	 * Începe trimiterea unui query dns
 	 */
-	fout << "\n; Trying: " << host << " " << type_to_string(query_type) << "\n";
+	fout << "\n; Trying: " << host << " " << type_to_string(query_type);
 
 	cerr << host << endl;
 	convert_to_dns(queryname, host);
@@ -274,10 +285,12 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 
 		cerr << "TEST: type_to_string: " << type_to_string(query_type) << endl;
 
+		// -------------------------------------------------------------------
 		// Secțiunea Answer
 		int last = 0;
 		RR answer;
-		fout << "\n;; ANSWER SECTION:\n";
+		if (ntohs(dns_header->ancount) > 0)
+			fout << "\n\n;; ANSWER SECTION:";
 
 		for (i = 0; i < ntohs(dns_header->ancount); ++i)
 		{
@@ -288,6 +301,12 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 
 			answer.resource = (dns_rr_t *)read_ptr;
 			read_ptr += sizeof(dns_rr_t);
+
+			// -----------------------
+			// Afișez numele în fișier
+			fout << "\n" << answer.name << "\t"
+				 << class_type_to_string(ntohs(answer.resource->class_))
+				 << "\t" << type_to_string(ntohs(answer.resource->type));
 
 			if (ntohs(answer.resource->type) == A)	// IP address
 			{
@@ -303,7 +322,15 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 				answer.rdata[len] = '\0';
 				read_ptr += len;
 
-				cerr << "nume_as_ip " << answer.rdata  << endl;
+				memset(&ans, 0, sizeof(ans));
+				long *point;
+				point = (long*)answer.rdata;
+				ans.sin_addr.s_addr = (*point);
+
+				fout << "\t" << inet_ntoa(ans.sin_addr);
+
+
+//				cerr << "nume_as_ip " << answer.rdata  << endl;
 			}
 
 			else
@@ -311,12 +338,82 @@ bool get_host_by_name(unsigned char *host, unsigned char *server, int query_type
 				answer.rdata = dns_to_host(read_ptr, buffer, last);
 				read_ptr += last;
 				cerr << "ans.rdata " << answer.rdata << endl;
+
+				fout << "\t" << answer.rdata;
 			}
 		}
 
 		// Secțiunea Authorities
+		if (ntohs(dns_header->nscount) > 0)
+			fout << "\n\n;; AUTHORITY SECTION:";
 		for (i = 0; i < ntohs(dns_header->nscount); ++i)
 		{
+			memset(&answer, 0, sizeof(answer));
+			answer.name = dns_to_host(read_ptr, buffer, last);
+			read_ptr += last;
+
+			answer.resource = (dns_rr_t*)read_ptr;
+			read_ptr += sizeof(dns_rr_t);
+
+			answer.rdata = dns_to_host(read_ptr, buffer, last);
+			read_ptr += last;
+
+
+			fout << "\n" << answer.name << "\t"
+				 << class_type_to_string(ntohs(answer.resource->class_))
+				 << "\t" << type_to_string(ntohs(answer.resource->type))
+				 << "\t" << answer.rdata;
+		}
+
+		// Secțiunea Additional
+		if (ntohs(dns_header->arcount) > 0)
+			fout << "\n\n;; ADDITIONAL SECTION:";
+		for (i = 0; i < ntohs(dns_header->arcount); ++i)
+		{
+			memset(&answer, 0, sizeof(answer));
+			answer.name = dns_to_host(read_ptr, buffer, last);
+			read_ptr += last;
+
+			answer.resource = (dns_rr_t*)read_ptr;
+			read_ptr += sizeof(dns_rr_t);
+
+			fout << "\n" << answer.name << "\t"
+				 << class_type_to_string(ntohs(answer.resource->class_))
+				 << "\t" << type_to_string(ntohs(answer.resource->type));
+
+			if (ntohs(answer.resource->type) == A)	// IP address
+			{
+				unsigned short len = ntohs(answer.resource->rdlength);
+				if ( (answer.rdata = (unsigned char*) malloc(len)) < 0)
+					error("Malloc error in answer section");
+
+				for (j = 0; j < ntohs(answer.resource->rdlength); ++j)
+				{
+					answer.rdata[j] = read_ptr[j];
+				}
+
+				answer.rdata[len] = '\0';
+				read_ptr += len;
+
+				memset(&ans, 0, sizeof(ans));
+				long *point;
+				point = (long*)answer.rdata;
+				ans.sin_addr.s_addr = (*point);
+
+				fout << "\t" << inet_ntoa(ans.sin_addr);
+			}
+
+			else
+			{
+				answer.rdata = dns_to_host(read_ptr, buffer, last);
+				read_ptr += last;
+				cerr << "ans.rdata " << answer.rdata << endl;
+
+				fout << "\t" << answer.rdata;
+			}
+
+
+
 
 		}
 	}
