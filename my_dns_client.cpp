@@ -99,15 +99,6 @@ void convert_to_dns(unsigned char *dns, unsigned char *name)
 	*dns++ = '\0';
 }
 
-/* Convert from 192.168.0.1 format to
- * 1110316831927in-addr4arpa format
- */
-void convert_to_dns2(unsigned char *dns, unsigned char *name)
-{
-
-
-}
-
 /* Convert from 3www6google3.com format to
  * www.google.com format
  */
@@ -128,7 +119,6 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 	// Citesc numele în formatul 3www6google3com
 	while (*read_ptr != 0)
 	{
-//		cerr << "{" << *read_ptr << "} ";
 		// Trebuie să sar către un nume
 		if (*read_ptr >= 192)
 		{
@@ -136,7 +126,7 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 			// cele 2 caractere
 			offset = (*read_ptr) * (1<<8) + *(read_ptr + 1)
 					- (((1<<16) - 1) - ((1<<14) -1));
-//			cerr << "\noffset " << offset << endl;
+
 			read_ptr = buffer + offset - 1;
 			jumped = true;	// Nu voi mai crește count-ul
 		}
@@ -168,9 +158,6 @@ unsigned char* dns_to_host(unsigned char* read_ptr, unsigned char* buffer, int& 
 		name[i] = '.';
 	}
 	name[i] = '\0';
-//	name[i - 1] = '\0';	// Șterg ultimul punct;
-
-//	cerr << "dns-to-host_TEST: {" << name << "}\n";
 
 	return name;
 }
@@ -218,7 +205,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 	 */
 	fout << "\n; Trying: " << host << " " << type_to_string(query_type);
 
-	cerr << host << endl;
 	if (query_type != PTR)
 		convert_to_dns(queryname, host);
 	else
@@ -235,7 +221,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 
 		convert_to_dns(queryname, host);
 	}
-	cerr << "\n" << queryname << endl << host << endl;
 
 	dns_question = (dns_question_t *) &buffer[ sizeof(dns_header_t)
 	                                           + strlen((const char*)queryname) + 1 ];
@@ -243,10 +228,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 	dns_question->qclass = htons(1);	// IN class for Internet
 	dns_question->qtype = htons(query_type);
 
-	cerr << "qclas: " << ntohs(dns_question->qclass) << " qtype: "
-			<< ntohs(dns_question->qtype) << endl;
-
-	cerr << "Sending query for " << host << "...\n";
 	if (sendto(sockfd, (char *)buffer, sizeof(dns_header_t)
 			+ (strlen((const char*)queryname) + 1) + sizeof(dns_question_t),
 			0, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
@@ -254,7 +235,6 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 		perror("Error in sendto");
 		return true;
 	}
-	cerr << "Done sending.\n";
 
 	/* Aștept un timp pentru a primi răspuns de la server și apoi
 	 * scriu răspunsul în fișier. Dacă nu am primit răspuns trec
@@ -360,6 +340,26 @@ bool get_host_by_name(unsigned char *host2, unsigned char *server, int query_typ
 
 
 //				cerr << "nume_as_ip " << answer.rdata  << endl;
+			}
+
+			if (ntohs(answer.resource->type) == MX)	// Mail
+			{
+				unsigned short *pref = NULL;
+				pref = (unsigned short *) read_ptr;
+
+				cerr << "preference " << ntohs(*pref) << endl;
+
+				read_ptr += 2;
+
+				unsigned short len = ntohs(answer.resource->rdlength);
+				if ( (answer.rdata = (unsigned char*) malloc(len)) < 0)
+					error("Malloc error in answer section");
+
+				answer.rdata = dns_to_host(read_ptr, buffer, last);
+								read_ptr += last;
+				cerr << "Nameserver: " << answer.rdata << endl;
+
+				fout << "\t" << ntohs(*pref) << "\t" << answer.rdata;
 			}
 
 			else

@@ -2,20 +2,25 @@
 ; Trying: google.com MX
 
 ;; ANSWER SECTION:
-google.com.	IN	MX	
-google.com.	IN	MX	
+google.com.	IN	MX	10	aspmx.l.google.com.
+google.com.	IN	MX	20	alt1.aspmx.l.google.com.
+google.com.	IN	MX	30	alt2.aspmx.l.google.com.
+google.com.	IN	MX	40	alt3.aspmx.l.google.com.
+google.com.	IN	MX	50	alt4.aspmx.l.google.com.
 
 ;; AUTHORITY SECTION:
+google.com.	IN	NS	ns3.google.com.
 google.com.	IN	NS	ns1.google.com.
 google.com.	IN	NS	ns4.google.com.
+google.com.	IN	NS	ns2.google.com.
 
 ;; ADDITIONAL SECTION:
-google.com.	IN	NS	ns2.google.com.
-google.com.	IN	NS	ns3.google.com.
 aspmx.l.google.com.	IN	A	173.194.70.27
 alt1.aspmx.l.google.com.	IN	A	173.194.71.26
 alt2.aspmx.l.google.com.	IN	A	74.125.127.27
 alt3.aspmx.l.google.com.	IN	A	173.194.77.26
-alt4.aspmx.l.google.com.	IN	A	209.85.225.26
+alt4.aspmx.l.google.com.	IN	A	209.85.225.27
 ns1.google.com.	IN	A	216.239.32.10
 ns2.google.com.	IN	A	216.239.34.10
+ns3.google.com.	IN	A	216.239.36.10
+ns4.google.com.	IN	A	216.239.38.10
