@@ -1,15 +1,5 @@
-# Compiled Object files
-*.slo
-*.lo
-*.o
-
-# Compiled Dynamic libraries
-*.so
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-
-# Binary
-my_dns_client
+/Assignment-3/.metadata
+/Assignment-1/tema1_2012/*.o
+/Assignment-1/tema1_2012/link.out
+/Assignment-1/tema1_2012/send
+/Assignment-1/tema1_2012/recv

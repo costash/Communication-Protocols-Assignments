@@ -1,0 +1,86 @@
+*** Tema 3 Protocoale de comunicatii ***
+*** Constantin Șerban-Rădoi 323CA ***
+*** Aprilie 2012 ***
+
+Client:
+	Pentru fiecare tip de mesaj am folosit formatul:
+	"nume_comanda parametrii_comanda"
+	
+	Tipuri comenzi care se trimit la server:
+	0)connect
+		param1 = nume
+		param2 = port
+	1)listclients
+		atasez un singur parametru, numele clientului initiator al comenzii
+	2)infoclient
+		param1 = numele clientului care cere informatii
+		param2 = numele clientului despre care se cer informatii
+	3)message
+		param1 = numele clientului care trimite
+		param2 = numele clientului despre care se cer informatii de conectare
+	4)sharefile
+		param1 = numele clientului care face share
+		param2 = numele fisierului
+	5)unsharefile
+		param1 = numele clientului care face unshare
+		param2 = numele fisierului
+	6)getshare
+		param1 = numele clientului care cere share info
+		param2 = numele clientului despre care se cere share info
+	7)getfile
+		param1 = numele clientului care cere fisierul
+		param2 = numele clientului de la care se cere
+		param3 = numele fisierului
+	8)quit
+		doar se inchid conexiunile si se opreste clientul
+	
+	Tipuri mesaje venite de la server:
+	0a)connected
+		client conectat cu succes la server
+	0b)disconnected
+		clientul a fost deconectat de la server
+	1)clienti
+		param_i = client_i	// lista de clienti
+	2)client-inexistent
+		mesaj de instiintare ca nu exista clientul
+	3)info-client
+		param1 = nume
+		param2 = port de listening
+		param3 = timp cat a fost conectat pe server
+		param4 = ip
+	4)shared-OK si shared-NOTOK
+		ACK sau NACK pentru actiunea de share file
+	5)getshare-NOTOK
+		NACK pentru actiunea de getshare
+	6)shared-files
+		param_i = fisier_i	//lista de fisiere
+		
+	Tipuri mesaje intre clienti:
+	1)text-msg
+		param1 = numele clientului care a trimis
+		param2 = mesajul
+	2)getfile
+		ca la mesajele pentru server
+	
+	
+Server:
+	Mesajele de trimis la client au fost explicate anterior
+la tipuri de mesaje ce vin de la server
+
+
+	Algoritm pentru mesaje intre clienti:
+		a) Client1 trimite mesaj la server pentru a cere informatii
+			despre Client2
+		b) Serverul raspunde cu informatiile cerute de Client1
+		c) Client1 se conecteaza la Client2 si trimite mesajul apoi
+			inchide conexiunea
+		d) Client2 accepta conexiunea si afiseaza mesajul
+	
+	Algoritm pentru fisiere:
+		a) Client1 cere informati la server despre Client2
+		b) Serverul raspunde lui Client1
+		c) Client1 se conecteaza la Client2 si ii cere fisierul
+		d) Client2 accepta conexiunea si ii trimite intai dimensiunea fisierului
+		e) Client1 primeste dimensiunea si apoi asteapta restul fisierului
+		f) Client2 trimite restul fisierului
+	
